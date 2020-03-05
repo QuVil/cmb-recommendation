@@ -31,6 +31,24 @@ def clean_data(raw, z_threshold=2.5, min_listen_time=20):
     return raw[(raw["origin"] != "unknown")]
 
 
+def get_songs_data(cleaned_data, recommended=True):
+    """
+    Gets the number of songs and plays for each user (calculates S/P diversity index)
+    :param cleaned_data: data after removing outliers
+    :param recommended: gets the recommended part of the dataset if True
+    :return: a pandas DataFrame with [user_id, S/P] as its columns
+    """
+    if recommended:
+        songs_data = cleaned_data[cleaned_data["origin"].str.contains("flow|reco")]
+    else:
+        songs_data = cleaned_data[~cleaned_data["origin"].str.contains("flow|reco")]
+
+    songs_data = songs_data.groupby(['user_id', 'sng_id']).size()
+    #TODO drop with threshold before calcultation S/P
+    songs_data = songs_data.groupby(['user_id']).size().divide(songs_data.sum(level="user_id"))
+    return songs_data
+
+
 def compute_diversity(user_songs, threshold=7):
     """
     Diversity used is S/P, which stands for SONGS / PLAYS (always 0 < S/P < 1)
@@ -40,7 +58,7 @@ def compute_diversity(user_songs, threshold=7):
     """
     to_delete = []
 
-    for user, listened in user_songs.items():
+    for user, listened in user_songs["user_id"]:
         # Avoid division by zero for empty cases and keep a record of users with nb_observations < threshold
         if (plays := sum(list(listened.values()))) > threshold:
             user_songs[user] = len(listened) / plays
@@ -55,7 +73,7 @@ def compute_diversity(user_songs, threshold=7):
 
 if __name__ == "__main__":
     print("Reading data...")
-    raw_data = pd.read_csv(FILE_NAME)
+    raw_data = pd.read_csv(FILE_NAME).head(300)
     raw_data = clean_data(raw_data)
 
     print(f"Data shape: {raw_data.shape[0]} lines, {raw_data.shape[1]} columns")
@@ -66,6 +84,10 @@ if __name__ == "__main__":
     user_nb = users.shape[0]
     print(f"Individual users: {user_nb}")
 
+    rec_data = get_songs_data(raw_data, recommended=True)
+    org_data = get_songs_data(raw_data, recommended=False)
+
+    print(org_data)
     # songs = np.unique(raw_data.sng_id)
     # song_nb = songs.shape[0]
     # print(f"Individual songs: {song_nb}")
@@ -75,6 +97,7 @@ if __name__ == "__main__":
     data_rec = dict(zip(users, [defaultdict(int) for j in range(user_nb)]))
 
     print("Organizing data...")
+    #TODO Use new S/P calculation
     entry_nb = raw_data.shape[0]
     # Create a dict with a list of songs heard by users and the amount of plays for each song
     for idx, entry in raw_data.iterrows():
@@ -88,7 +111,7 @@ if __name__ == "__main__":
             print(f"{idx}/{entry_nb} ({((idx / entry_nb) * 100):9.2f} %) done")
 
     print("Calculating diversity ratio...")
-    data_org = compute_diversity(data_org)
+    org_data = compute_diversity(org_data)
     data_rec = compute_diversity(data_rec)
 
     data = list(zip(data_org.keys(), data_org.values(), [0 for i in range(len(data_org))]))
