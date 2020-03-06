@@ -12,6 +12,6 @@ data = pd.read_csv(FILE_NAME)
 data["test"] = 1
 
 print("Plotting violin graph...")
-# sns.violinplot(x="test", y="ratio", hue="recommended", data=data, split=True, scale="width")
-sns.catplot(x="recommended", y="ratio", data=data)
+sns.violinplot(x="test", y="ratio", hue="recommended", data=data, split=True, scale="width", bw="silverman")
+# sns.catplot(x="recommended", y="ratio", data=data)
 plt.show()

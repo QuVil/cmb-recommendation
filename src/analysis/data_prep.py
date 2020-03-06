@@ -5,7 +5,7 @@ import pandas as pd
 from scipy import stats
 
 FILE_NAME = "../../data/streams_2016_1023_sampled_users.csv"
-SAVE_NAME = "../../data/testing.csv"
+SAVE_NAME = "../../data/testing2.csv"
 
 
 def is_reco(origin):
@@ -31,9 +31,10 @@ def clean_data(raw, z_threshold=2.5, min_listen_time=20):
     return raw[(raw["origin"] != "unknown")]
 
 
-def get_songs_data(cleaned_data, recommended=True):
+def get_songs_data(cleaned_data, recommended=True, obs_threshold=7):
     """
     Gets the number of songs and plays for each user (calculates S/P diversity index)
+    :param obs_threshold:
     :param cleaned_data: data after removing outliers
     :param recommended: gets the recommended part of the dataset if True
     :return: a pandas DataFrame with [user_id, S/P] as its columns
@@ -43,9 +44,11 @@ def get_songs_data(cleaned_data, recommended=True):
     else:
         songs_data = cleaned_data[~cleaned_data["origin"].str.contains("flow|reco")]
 
-    songs_data = songs_data.groupby(['user_id', 'sng_id']).size()
-    #TODO drop with threshold before calcultation S/P
-    songs_data = songs_data.groupby(['user_id']).size().divide(songs_data.sum(level="user_id"))
+    songs_data = songs_data.groupby(["user_id", "sng_id"]).size()
+    print(songs_data)
+    print(songs_data[songs_data > obs_threshold])
+    # TODO drop with threshold before calcultation S/P
+    songs_data = songs_data.groupby(["user_id"]).size().divide(songs_data.sum(level="user_id"))
     return songs_data
 
 
@@ -87,38 +90,13 @@ if __name__ == "__main__":
     rec_data = get_songs_data(raw_data, recommended=True)
     org_data = get_songs_data(raw_data, recommended=False)
 
-    print(org_data)
-    # songs = np.unique(raw_data.sng_id)
-    # song_nb = songs.shape[0]
-    # print(f"Individual songs: {song_nb}")
-
-    # Separate recommended and organic listening
-    data_org = dict(zip(users, [defaultdict(int) for i in range(user_nb)]))
-    data_rec = dict(zip(users, [defaultdict(int) for j in range(user_nb)]))
-
     print("Organizing data...")
-    #TODO Use new S/P calculation
-    entry_nb = raw_data.shape[0]
-    # Create a dict with a list of songs heard by users and the amount of plays for each song
-    for idx, entry in raw_data.iterrows():
-        if is_reco(entry.origin):
-            data_rec.get(entry.user_id)[entry.sng_id] += 1
-        else:
-            data_org.get(entry.user_id)[entry.sng_id] += 1
+    org_data = org_data.to_frame()
+    rec_data = rec_data.to_frame()
+    org_data.rename(columns={"user_id": "user", "0": "ratio"})
+    rec_data.rename(columns={"user_id": "user", "0": "ratio"})
+    org_data["recommended"] = 0
+    rec_data["recommended"] = 1
+    org_data = pd.concat([org_data, rec_data])
 
-        # Note that the progress is incorrect if the data is cleaned up (indices on the dataframe are not updated)
-        if idx % 5000 == 0:
-            print(f"{idx}/{entry_nb} ({((idx / entry_nb) * 100):9.2f} %) done")
-
-    print("Calculating diversity ratio...")
-    org_data = compute_diversity(org_data)
-    data_rec = compute_diversity(data_rec)
-
-    data = list(zip(data_org.keys(), data_org.values(), [0 for i in range(len(data_org))]))
-    data.extend(list(zip(data_rec.keys(), data_rec.values(), [1 for i in range(len(data_rec))])))
-
-    dataframe = pd.DataFrame(data, columns=["user", "ratio", "recommended"])
-    dataframe["recommended"] = dataframe["recommended"].astype('category')
-    # print(dataframe)
-
-    dataframe.to_csv(SAVE_NAME, index=False)
+    org_data.to_csv(SAVE_NAME)
