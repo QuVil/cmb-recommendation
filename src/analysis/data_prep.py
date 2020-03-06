@@ -59,7 +59,7 @@ def get_songs_data(cleaned_data, recommended=True, obs_threshold=7):
 
 
 @DeprecationWarning
-def compute_diversity(user_songs, threshold=7):
+def compute_old_diversity(user_songs, threshold=7):
     """
     Calculates diversity of with a dict of songs and their respective plays. DEPRECATED since 06.03.2020
     Diversity used is S/P, which stands for SONGS / PLAYS (0 < S/P < 1)
