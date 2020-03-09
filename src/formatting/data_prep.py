@@ -1,5 +1,3 @@
-from collections import defaultdict
-
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -90,10 +88,9 @@ if __name__ == "__main__":
     print(f"Data shape: {raw_data.shape[0]} lines, {raw_data.shape[1]} columns")
 
     print("Preparing data...")
-    # users = np.unique(raw_data.user_id)
-    users = raw_data.user_id.unique()
-    user_nb = users.shape[0]
-    print(f"Individual users: {user_nb}")
+    # users = raw_data.user_id.unique()
+    # user_nb = users.shape[0]
+    # print(f"Individual users: {user_nb}")
 
     print("Computing diversity ratio...")
     rec_data = get_songs_data(raw_data, recommended=True)
