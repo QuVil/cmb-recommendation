@@ -37,7 +37,7 @@ def get_songs_data(cleaned_data, recommended=True, obs_threshold=7):
     :param recommended: gets the recommended part of the dataset if True, the organic part otherwise
     :return: a pandas Series with [user_id, S/P] as its rows
     """
-    # Separating based on entry's origin
+    # Separating based on entry's origin -- should use map function if refactoring ever occurs
     if recommended:
         songs_data = cleaned_data[cleaned_data["origin"].str.contains("flow|reco")]
     else:
