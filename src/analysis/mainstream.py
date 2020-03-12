@@ -22,10 +22,14 @@ def bin_artists(data, bin_amnt=25, separate_reco=True):
     print("Counting artist occurences...")
     artist_count = raw_data["art_id"].value_counts(normalize=False).sort_values(ascending=False).to_frame() \
         .reset_index().rename(columns={"index": "art_id", "art_id": "plays"})
+    artist_count["cumplays"] = artist_count["plays"][::-1].cumsum()
 
     print("Binning artists...")
     # Cutting into bin_amnt bins (duplicate bins allowed -- and necessary for small datasets and large amount of bins)
-    artist_count["bin"] = pd.qcut(artist_count["plays"], bin_amnt, duplicates="drop")
+    artist_count["bin"] = pd.cut(artist_count["cumplays"], bin_amnt, duplicates="drop")
+    # print(artist_count.groupby("bin").size())
+    # print(artist_count.groupby("bin").sum()["plays"])
+
     # Assigning corresponding numbers to bins
     artist_count["bin_nb"] = (artist_count["bin"].cat.codes + 1).values[::-1]
     print(f"Artists binned into {artist_count['bin_nb'].max()} categories.")
@@ -42,9 +46,9 @@ def bin_artists(data, bin_amnt=25, separate_reco=True):
 if __name__ == "__main__":
     FILE_NAME = "../../data/artist_streams.csv"
     SAVE_NAME = "../../data/mainstream_data.csv"
-    MIN_OBS = 2000
+    MIN_OBS = 100
     SEPARATE_RECO = False
-    BIN_AMNT = 30
+    BIN_AMNT = 20
 
     sns.set_palette(sns.color_palette("colorblind"))
     sns.set_style("darkgrid")
@@ -57,7 +61,6 @@ if __name__ == "__main__":
     # Bin artists together
     artist_data = bin_artists(raw_data, BIN_AMNT, SEPARATE_RECO)
 
-    # TODO normalisation en fonction d'un delta? La normalisation se fait pour l'instant par ratio
     # Occurences of music plays in each bin
     bin_distrib = artist_data.groupby("bin_nb").size()
     # Normalized
@@ -93,9 +96,12 @@ if __name__ == "__main__":
             else:
                 user_dist = main_dist[user].to_frame()
             user_dist.columns = ["ratio"]
-
+            print(user_dist["ratio"])
             # Normalizing with regards to "average" consumption
             user_dist["ratio"] /= bin_distrib * user_dist["ratio"].sum()
+
+            # Log
+            user_dist["ratio"] = np.log(user_dist["ratio"])
 
             # Adding data to total frame for later seaborn plotting (useless for quick-and-dirty mpl)
             user_dist = user_dist.reset_index()
@@ -113,15 +119,12 @@ if __name__ == "__main__":
 
     if not SEPARATE_RECO:
         sns.relplot(x="bin_nb", y="ratio", kind="line", col="user_id", col_wrap=3, dashes=False, markers=True,
-                    estimator=None, data=aggregate, legend="brief")
+                    estimator=None, data=aggregate, legend=False, style="recommended")
     else:
         sns.relplot(x="bin_nb", y="ratio", hue="recommended", style="recommended", kind="line", col="user_id",
                     col_wrap=3, dashes=False, markers=True, estimator=None, data=aggregate, legend="brief")
     sns.despine()
     plt.show()
-
-    # sns.distplot(artist_count["bin_nb"])
-    # plt.show()
 
     # print(artist_count.tail())
     # sns.relplot(x="index", y="count", kind="line", data=artist_count.reset_index())
